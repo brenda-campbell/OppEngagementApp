@@ -1,28 +1,11 @@
-# Python to Linux Web App on Azure
-# Build your Python project and deploy it to Azure as a Linux Web App.
-# Change python version to one thats appropriate for your application.
-# https://docs.microsoft.com/azure/devops/pipelines/languages/python
-
 trigger:
 - main
 
 variables:
-  # Azure Resource Manager connection created during pipeline creation
-  azureServiceConnectionId: 'f99a12cc-94f2-4b6a-943b-d36a6775e14d'
-
-  # Web app name
+  azureServiceConnectionId: '7dd0d41f-dd55-4a5e-952b-8ee8af7f6836'
   webAppName: 'akuaapeagyei'
-
-  # Agent VM image name
   vmImageName: 'ubuntu-latest'
-
-  # Environment name
-  environmentName: ''
-
-  # Project root folder. Point to the folder containing manage.py file.
   projectRoot: $(System.DefaultWorkingDirectory)
-
-  # Python version: 3.7
   pythonVersion: '3.7'
 
 stages:
@@ -60,6 +43,37 @@ stages:
       displayName: 'Upload package'
       artifact: drop
 
+- stage: Test
+  displayName: 'Test stage'
+  jobs:
+  - job: TestJob
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '$(pythonVersion)'
+      displayName: 'Use Python $(pythonVersion)'
+
+    - script: |
+        python -m pip install pytest
+        pytest
+      workingDirectory: $(projectRoot)
+      displayName: 'Run pytest'
+
+- stage: SecurityScan
+  displayName: 'Security Scan'
+  jobs:
+  - job: SecurityScanJob
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: OWASPZAPScan@1
+      displayName: 'Run OWASP ZAP Scan'
+      inputs:
+        targetUrl: 'akuaapeagyei.azurewebsites.net'
+        scanPolicy: 'Default'
+
 - stage: Deploy
   displayName: 'Deploy Web App'
   dependsOn: Build
@@ -85,3 +99,7 @@ stages:
               azureSubscription: $(azureServiceConnectionId)
               appName: $(webAppName)
               package: $(Pipeline.Workspace)/drop/$(Build.BuildId).zip
+
+
+
+
