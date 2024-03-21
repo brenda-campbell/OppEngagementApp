@@ -1,6 +1,7 @@
 DROP TABLE IF EXISTS user;
 DROP TABLE IF EXISTS post;
 DROP TABLE IF EXISTS opportunity;
+DROP TABLE IF EXISTS comments;
 
 CREATE TABLE user (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,4 +27,14 @@ CREATE TABLE opportunity (
     updated_at TIMESTAMP,
     employee_id INTEGER NOT NULL,
     FOREIGN KEY (employee_id) REFERENCES user (id)
+);
+
+CREATE TABLE comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    author_id INTEGER NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    body TEXT NOT NULL,
+    FOREIGN KEY (post_id) REFERENCES post (id),
+    FOREIGN KEY (author_id) REFERENCES user (id)
 );
