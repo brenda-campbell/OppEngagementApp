@@ -1,44 +1,63 @@
-import sqlite3
-from typing import Optional
-from flask import current_app, g
-import click
+from website import bcrypt, db
+from flask_login import UserMixin
 
-def establish_database_connection() -> sqlite3.Connection:
-    """
-    Establish a connection to the SQLite database.
-    """
-    if 'db' not in g:
-        g.db = sqlite3.connect(
-            current_app.config['DATABASE'],
-            detect_types=sqlite3.PARSE_DECLTYPES
-        )
-        g.db.row_factory = sqlite3.Row
+class Employee(UserMixin, db.Model):
+    __tablename__ = "employees"
 
-    return g.db
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String, unique=True, nullable=False)
+    password = db.Column(db.String, nullable=False)
+    created_on = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
 
-def close_database_connection(e: Optional[Exception] = None) -> None:
-    """
-    Close the SQLite database connection if it exists.
-    """
-    db = g.pop('db', None)
+    posts = db.relationship('Post', back_populates='post_author', lazy=True)
+    opportunities = db.relationship('Opportunity', backref='employee_opportunity', lazy=True)
+    comments = db.relationship('Comments', back_populates='comment_author', lazy=True)
 
-    if db is not None:
-        db.close()
-        
-        
-def init_db():
-    db = establish_database_connection()
+    def set_password(self, password):
+        self.password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-    with current_app.open_resource('schema.sql') as f:
-        db.executescript(f.read().decode('utf8'))
+    def __repr__(self):
+        return f"<Employee {self.email}>"
 
+class Post(db.Model):
+    __tablename__ = "posts"
 
-@click.command('init-db')
-def init_db_command():
-    """Clear the existing data and create new tables."""
-    init_db()
-    click.echo('Initialized the database.')
-    
-def init_app(app):
-    app.teardown_appcontext(close_database_connection)
-    app.cli.add_command(init_db_command)
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String, nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    created_on = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    author_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
+
+    post_author = db.relationship('Employee', back_populates='posts')
+
+    def __repr__(self):
+        return f"<Post {self.title}>"
+
+class Opportunity(db.Model):
+    __tablename__ = "opportunity"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String, nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    updated_at = db.Column(db.DateTime)
+    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
+
+    def __repr__(self):
+        return f"<Opportunity {self.name}>"
+
+class Comments(db.Model):
+    __tablename__ = "comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
+    created = db.Column(db.DateTime, nullable=False, default=db.func.now())
+    body = db.Column(db.Text, nullable=False)
+
+    comment_author = db.relationship('Employee', back_populates='comments')
+
+    def __repr__(self):
+        return f"<Comments {self.body}>"
